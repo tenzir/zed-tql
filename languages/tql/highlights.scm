@@ -37,7 +37,9 @@
   "false"
 ] @boolean
 
-(dollar_var) @variable
+(dollar_var) @variable.builtin
+(global_sigil) @keyword
+(metadata_sigil) @keyword
 (meta_selector) @attribute
 (number) @number
 (string) @string
@@ -54,6 +56,7 @@
   (entity) @function.call)
 (call_expression
   method: (entity) @function.method)
+((identifier) @variable.builtin (#match? @variable.builtin "^\$[A-Za-z_]\w*$"))
 
 [
   "("
