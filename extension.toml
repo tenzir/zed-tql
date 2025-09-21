@@ -8,4 +8,4 @@ repository = "https://github.com/tenzir/zed-tql"
 
 [grammars.tql]
 repository = "https://github.com/tenzir/tree-sitter-tql"
-commit = "8dfa113d3e84cd382b42fe8e01e6347e15341562"
+commit = "2b20201d17048af59f71a6350335a6ea1b166dc5"
