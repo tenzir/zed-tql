@@ -2,7 +2,7 @@ name = "TQL"
 grammar = "tql"
 path_suffixes = ["tql"]
 line_comments = ["// "]
-block_comment = { start = "/*", prefix = " * ", end = " */" }
+block_comment = { start = "/* ", prefix = "* ", end = " */", tab_size = 1 }
 autoclose_before = ";:.,=}])>"
 brackets = [
   { start = "{", end = "}", close = true, newline = true },
