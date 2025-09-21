@@ -19,6 +19,7 @@
   "{"
   "}"
   ":"
+  "|"
 ] @keyword
 
 "_" @variable.builtin
@@ -55,13 +56,11 @@
 
 [
   ","
-  ";"
 ] @punctuation.delimiter
 
 [
   "="
   "=>"
-  "|"
   "::"
   "=="
   "!="
