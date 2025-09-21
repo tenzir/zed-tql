@@ -1,0 +1,73 @@
+;; Minimal highlighting rules for TQL
+
+[
+  "let"
+  "if"
+  "else"
+  "match"
+  "and"
+  "or"
+  "not"
+  "move"
+  "in"
+] @keyword
+
+"this" @variable.builtin
+
+"_" @variable.builtin
+
+[
+  "null"
+] @constant.builtin
+
+[
+  "true"
+  "false"
+] @boolean
+
+(dollar_var) @variable.special
+(meta_selector) @attribute
+
+(number) @number
+(string) @string
+(format_expr) @string
+(ip) @constant
+(subnet) @constant
+(time) @number
+(duration) @number
+
+(comment) @comment
+
+[
+  "("
+  ")"
+  "["
+  "]"
+  "{"
+  "}"
+] @punctuation.bracket
+
+[
+  ","
+  ";"
+] @punctuation.delimiter
+
+[
+  "="
+  "=>"
+  "|"
+  "?"
+  ":"
+  "..."
+  "::"
+  "=="
+  "!="
+  ">"
+  ">="
+  "<"
+  "<="
+  "+"
+  "-"
+  "*"
+  "/"
+] @operator
