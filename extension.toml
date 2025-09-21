@@ -1,6 +1,6 @@
 id = "tql"
 name = "TQL"
-description = "Tenzir Query Language support."
+description = "Zed extension for the Tenzir Query Language (TQL)."
 version = "0.0.1"
 schema_version = 1
 authors = ["Tenzir <engineering@tenzir.com>"]
