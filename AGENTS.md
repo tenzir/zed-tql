@@ -4,19 +4,10 @@ This repository packages the Tenzir Query Language grammar for Zed.
 
 ## Grammar Synchronization
 
-Do not add polling or scheduled upstream checks in this repository.
-
 The source of truth is `tenzir/tree-sitter-tql`. That repository owns the
 grammar, generated query files, and the workflow that propagates updates to
-`tenzir/zed-tql` when upstream grammar assets change.
-
-When syncing manually, update only these downstream artifacts:
-
-- `extension.toml` `[grammars.tql].commit`
-- `languages/tql/*.scm`
-
-The checked-in query files under `languages/tql/` are generated in
-`tenzir/tree-sitter-tql`; do not edit them by hand here.
+`tenzir/zed-tql` when upstream grammar assets change. The upstream workflow also
+bumps `extension.toml`'s version when it syncs a new grammar commit.
 
 ## Releases
 
