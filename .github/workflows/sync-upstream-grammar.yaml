@@ -1,0 +1,205 @@
+name: Sync Upstream Grammar
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-upstream-grammar:
+    name: Sync tree-sitter-tql pin
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update grammar pin and query files
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          branch="automation/sync-tree-sitter-tql"
+          upstream_url="https://github.com/tenzir/tree-sitter-tql"
+
+          pinned_commit="$(
+            sed -nE 's/^commit[[:space:]]*=[[:space:]]*"([0-9a-f]+)".*/\1/p' extension.toml
+          )"
+          upstream_commit="$(
+            git ls-remote "${upstream_url}" HEAD | awk '{ print $1 }'
+          )"
+
+          if [[ -z "${pinned_commit}" ]]; then
+            echo "::error title=Missing grammar pin::Could not find [grammars.tql].commit in extension.toml."
+            exit 1
+          fi
+
+          if [[ -z "${upstream_commit}" ]]; then
+            echo "::error title=Missing upstream commit::Could not resolve tenzir/tree-sitter-tql HEAD."
+            exit 1
+          fi
+
+          if [[ "${pinned_commit}" == "${upstream_commit}" ]]; then
+            echo "tree-sitter-tql is up to date at ${pinned_commit}."
+            echo "updated=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          mkdir -p upstream
+          git clone --depth 1 "${upstream_url}" upstream/tree-sitter-tql
+          cp upstream/tree-sitter-tql/languages/tql/*.scm languages/tql/
+          rm -rf upstream
+
+          current_version="$(
+            sed -nE 's/^version[[:space:]]*=[[:space:]]*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' extension.toml
+          )"
+          latest_tag_version="$(
+            git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+              | head -n 1 \
+              | sed 's/^v//'
+          )"
+
+          if [[ -z "${current_version}" ]]; then
+            echo "::error title=Missing extension version::Could not find semver version in extension.toml."
+            exit 1
+          fi
+
+          base_version="${current_version}"
+          if [[ -n "${latest_tag_version}" ]]; then
+            base_version="$(
+              printf '%s\n%s\n' "${current_version}" "${latest_tag_version}" \
+                | sort -V \
+                | tail -n 1
+            )"
+          fi
+
+          IFS=. read -r major minor patch <<< "${base_version}"
+          next_version="${major}.${minor}.$((patch + 1))"
+
+          perl -0pi -e 's/^version\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"/version = "'"${next_version}"'"/m' extension.toml
+          perl -0pi -e 's/^commit\s*=\s*"[0-9a-f]+"/commit = "'"${upstream_commit}"'"/m' extension.toml
+
+          if git diff --quiet; then
+            echo "No file changes after syncing ${upstream_commit}."
+            echo "updated=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "${branch}"
+          git add extension.toml languages/tql/*.scm
+          git commit -m "Sync tree-sitter-tql grammar"
+          git push --force-with-lease origin "${branch}"
+
+          {
+            echo "updated=true"
+            echo "branch=${branch}"
+            echo "pinned_commit=${pinned_commit}"
+            echo "upstream_commit=${upstream_commit}"
+            echo "next_version=${next_version}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## tree-sitter-tql update"
+            echo
+            echo "- Previous pin: \`${pinned_commit}\`"
+            echo "- Upstream HEAD: \`${upstream_commit}\`"
+            echo "- Extension version: \`${next_version}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Open pull request
+        id: pull_request
+        if: steps.sync.outputs.updated == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.sync.outputs.branch }}
+          UPSTREAM_COMMIT: ${{ steps.sync.outputs.upstream_commit }}
+          NEXT_VERSION: ${{ steps.sync.outputs.next_version }}
+        run: |
+          set -euo pipefail
+
+          title="Sync tree-sitter-tql grammar"
+          body="$(cat <<EOF
+          🤖 Automated sync for \`tree-sitter-tql\`.
+
+          - 📌 Updates the pinned grammar to \`${UPSTREAM_COMMIT}\`.
+          - 🧩 Refreshes the checked-in TQL query files.
+          - 🔖 Bumps the extension version to \`${NEXT_VERSION}\`.
+          - 📝 Adds a patch-level changelog entry.
+
+          After merge, verify the extension locally in Zed and push \`v${NEXT_VERSION}\` to trigger the release workflow.
+          EOF
+          )"
+
+          existing_pr="$(
+            gh pr list \
+              --head "${BRANCH}" \
+              --state open \
+              --json number \
+              --jq '.[0].number // ""'
+          )"
+
+          if [[ -n "${existing_pr}" ]]; then
+            gh pr edit "${existing_pr}" --title "${title}" --body "${body}"
+            echo "pr_number=${existing_pr}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          gh pr create \
+            --head "${BRANCH}" \
+            --base "${{ github.event.repository.default_branch }}" \
+            --title "${title}" \
+            --body "${body}"
+
+          pr_number="$(
+            gh pr view "${BRANCH}" \
+              --json number \
+              --jq '.number'
+          )"
+          echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
+
+      - uses: astral-sh/setup-uv@v5
+        if: steps.sync.outputs.updated == 'true'
+
+      - name: Add changelog entry
+        if: steps.sync.outputs.updated == 'true'
+        shell: bash
+        env:
+          BRANCH: ${{ steps.sync.outputs.branch }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          description_file="$(mktemp)"
+          trap 'rm -f "${description_file}"' EXIT
+
+          cat > "${description_file}" <<EOF
+          The TQL extension now tracks the latest upstream grammar, keeping editor language support aligned with current TQL syntax.
+          EOF
+
+          # tenzir-ship has no "patch" entry type; bugfix entries produce patch-level releases.
+          uvx tenzir-ship add \
+            --title "TQL grammar sync" \
+            --type bugfix \
+            --description-file "${description_file}" \
+            --pr "${PR_NUMBER}" \
+            --author "github-actions[bot]" \
+            --co-author codex
+
+          git add -A changelog
+
+          if git diff --cached --quiet; then
+            echo "No changelog changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Add changelog entry"
+          git push origin "${BRANCH}"
