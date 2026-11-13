@@ -1,11 +1,11 @@
 id = "tql"
 name = "TQL"
 description = "Zed extension for the Tenzir Query Language (TQL)."
-version = "0.4.11"
+version = "0.4.12"
 schema_version = 1
 authors = ["Tenzir <engineering@tenzir.com>"]
 repository = "https://github.com/tenzir/zed-tql"
 
 [grammars.tql]
 repository = "https://github.com/tenzir/tree-sitter-tql"
-commit = "cac3743e71cf9bdc13439633d7553465889d510e"
+commit = "030a21b44018e2d90ebcf9632074d5be9f849b24"
